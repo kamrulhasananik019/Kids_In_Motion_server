@@ -47,9 +47,8 @@ async function run() {
         await client.connect();
 
 
-        const testT = client.db('ass-12').collection('test');
         const usersCollection = client.db('ass-12').collection("users");
-
+        const allclassCollection = client.db('ass-12').collection("allclass");
 
         app.post('/jwt', (req, res) => {
             const user = req.body;
@@ -70,14 +69,10 @@ async function run() {
 
 
 
-        app.get('/test', async (req, res) => {
-            const result = await testT.find().toArray();
-            res.send(result);
-        })
 
         // user related apis
 
-        app.get('/users', verifyJWT,verifyAdmin, async (req, res) => {
+        app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
         })
@@ -94,7 +89,7 @@ async function run() {
             res.send(result);
         });
 
-    
+
 
         // security layer: verifyJWT
         // email same
@@ -155,8 +150,20 @@ async function run() {
 
             const result = await usersCollection.updateOne(filter, updateDoc);
             res.send(result);
-
         })
+
+
+
+
+
+        // //////////ALL Class
+
+        app.post('/addclass', async (req, res) => {
+            const addclass = req.body;
+            const result = await allclassCollection.insertOne(addclass);
+            res.send(result);
+        })
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
