@@ -49,6 +49,7 @@ async function run() {
 
         const usersCollection = client.db('ass-12').collection("users");
         const allclassCollection = client.db('ass-12').collection("allclass");
+        const selectclassCollection = client.db('ass-12').collection("selectClass");
 
         app.post('/jwt', (req, res) => {
             const user = req.body;
@@ -208,6 +209,18 @@ async function run() {
         })
 
 
+        //  select class
+        app.post('/select', verifyJWT,async (req, res) => {
+            const selectedClass = req.body;
+            const existingClass = await selectclassCollection.findOne(selectedClass);
+            if (existingClass) {
+                console.log(existingClass);
+                res.status(400).send('Selected class already exists');
+                return;
+            }
+            const result = await selectclassCollection.insertOne(selectedClass);
+            res.send(result);
+        });
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
