@@ -166,30 +166,32 @@ async function run() {
         })
 
         //  approved 
+
         app.patch('/allclass/:id', async (req, res) => {
             const id = req.params.id;
-            const filter = { _id: new ObjectId(id) };
-            const { status } = req.body;
-            const update = { $set: { status } };
-            const result = await allclassCollection.updateOne(filter, update)
-            res.send(result)
-        })
+            const query = { _id: new ObjectId(id) };
+            const { feedback, status } = req.body;
+
+            const updateDoc = { $set: { feedback } };
+            if (status) {
+                updateDoc.$set.status = status;
+            }
+            const result = await allclassCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
+
         //  feedback
 
-        // app.patch('/allclass/:id', async (req, res) => {
-        //     try {
-        //       const id = req.params.id;
-        //       const filter = { _id: new ObjectId(id) };
-        //       const { feedback } = req.body;
-        //       const update = { $set: { feedback } };
-        //       const result = await allclassCollection.updateOne(filter, update);
-        //       res.send(result);
-        //     } catch (error) {
-        //       console.error(error);
-        //       res.status(500).send('Internal Server Error');
-        //     }
-        //   });
-          
+
+        // app.patch('/fclass/:id', async (req, res) => {
+        //     const id = req.params.id;
+        //     const filter = { _id: new ObjectId(id) };
+        //     const { feedback } = req.body;
+        //     const update = { $set:  };
+        //     const result = await allclassCollection.updateOne(filter, update);
+        //     res.send(result);
+        // });
+
 
 
         app.get('/myclass/:email', async (req, res) => {
@@ -198,7 +200,12 @@ async function run() {
             const result = await allclassCollection.find(query).toArray()
             res.send(result)
         })
-
+        // instructors
+        app.get('/instructors', verifyJWT, async (req, res) => {
+            const quary = { role: 'instructor' };
+            const result = await usersCollection.find(quary).toArray()
+            res.send(result)
+        })
 
 
         // Send a ping to confirm a successful connection
