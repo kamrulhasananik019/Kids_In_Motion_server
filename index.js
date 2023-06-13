@@ -195,14 +195,14 @@ async function run() {
 
 
 
-        app.get('/myclass/:email', async (req, res) => {
+        app.get('/myclass/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const result = await allclassCollection.find(query).toArray()
             res.send(result)
         })
         // instructors
-        app.get('/instructors', verifyJWT, async (req, res) => {
+        app.get('/instructors',  async (req, res) => {
             const quary = { role: 'instructor' };
             const result = await usersCollection.find(quary).toArray()
             res.send(result)
@@ -210,7 +210,7 @@ async function run() {
 
 
         //  select class
-        app.post('/select', verifyJWT,async (req, res) => {
+        app.post('/select', verifyJWT, async (req, res) => {
             const selectedClass = req.body;
             const existingClass = await selectclassCollection.findOne(selectedClass);
             if (existingClass) {
@@ -221,6 +221,26 @@ async function run() {
             const result = await selectclassCollection.insertOne(selectedClass);
             res.send(result);
         });
+
+
+        app.get('/select/:user', async (req, res) => {
+            const user = req.params.user;
+            const query = { user: user }
+            const result = await selectclassCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        app.delete('/select/:id', async (req, res) => {
+            const id = req.params.id;
+   
+            const query = { _id: id }
+            const result = await selectclassCollection.deleteOne(query);
+            res.send(result)
+        });
+
+        // 
+
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
