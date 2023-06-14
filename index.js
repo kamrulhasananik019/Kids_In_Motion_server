@@ -1,9 +1,12 @@
+require('dotenv').config()
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const port = process.env.PORT || 5000;
-require('dotenv').config()
+
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 
@@ -50,7 +53,7 @@ async function run() {
         const usersCollection = client.db('ass-12').collection("users");
         const allclassCollection = client.db('ass-12').collection("allclass");
         const selectclassCollection = client.db('ass-12').collection("selectClass");
-
+        const paymentCollection = client.db('ass-12').collection("payment")
         app.post('/jwt', (req, res) => {
             const user = req.body;
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
@@ -161,7 +164,7 @@ async function run() {
         })
 
 
-        app.get('/allclass', verifyJWT, async (req, res) => {
+        app.get('/allclass', async (req, res) => {
             const result = await allclassCollection.find().toArray();
             res.send(result)
         })
@@ -181,17 +184,18 @@ async function run() {
             res.send(result);
         });
 
-        //  feedback
-
-
-        // app.patch('/fclass/:id', async (req, res) => {
-        //     const id = req.params.id;
-        //     const filter = { _id: new ObjectId(id) };
-        //     const { feedback } = req.body;
-        //     const update = { $set:  };
-        //     const result = await allclassCollection.updateOne(filter, update);
-        //     res.send(result);
-        // });
+        // feedback
+        app.patch('/allclass/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const { feedback, status } = req.body;
+            const updateDoc = { $set: { feedback } };
+            if (status) {
+                updateDoc.$set.status = status;
+            }
+            const result = await allclassCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
 
 
 
@@ -202,7 +206,7 @@ async function run() {
             res.send(result)
         })
         // instructors
-        app.get('/instructors',  async (req, res) => {
+        app.get('/instructors', async (req, res) => {
             const quary = { role: 'instructor' };
             const result = await usersCollection.find(quary).toArray()
             res.send(result)
@@ -212,6 +216,7 @@ async function run() {
         //  select class
         app.post('/select', verifyJWT, async (req, res) => {
             const selectedClass = req.body;
+
             const existingClass = await selectclassCollection.findOne(selectedClass);
             if (existingClass) {
                 console.log(existingClass);
@@ -223,6 +228,11 @@ async function run() {
         });
 
 
+        app.get('/select', async (req, res) => {
+            const result = await selectclassCollection.find().toArray()
+            res.send(result)
+        })
+
         app.get('/select/:user', async (req, res) => {
             const user = req.params.user;
             const query = { user: user }
@@ -232,14 +242,63 @@ async function run() {
 
         app.delete('/select/:id', async (req, res) => {
             const id = req.params.id;
-   
-            const query = { _id: id }
+
+            const query = { _id: new ObjectId(id) }
             const result = await selectclassCollection.deleteOne(query);
             res.send(result)
         });
 
-        // 
+        // payment
 
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        })
+
+
+        app.patch('/payments', verifyJWT, async (req, res) => {
+            const payment = req.body;
+
+            // Insert payment document only if it doesn't exist
+            const query = { classname: payment.classname, email: payment.email };
+            const existingPayment = await paymentCollection.findOne(query);
+
+            if (!existingPayment) {
+                const insertedResult = await paymentCollection.insertOne(payment);
+
+                // Update the class document in paymentCollection
+                const filter = { classname: payment.classname };
+                const updateDoc = {
+                    $inc: {
+                        seats: -1,
+                        enrolledStuNum: 1
+                    }
+                };
+
+                const updatePaymentResult = await paymentCollection.updateOne(filter, updateDoc, { upsert: false });
+
+                // Update the class document in classCollection
+                const updateClassResult = await allclassCollection.updateOne(filter, updateDoc, { upsert: false });
+
+
+
+                res.send({ insertedResult, updatePaymentResult, updateClassResult });
+            } else {
+                // delete from selected classes //
+                const deletedSelected = await selectclassCollection.deleteOne(query)
+
+                res.send({ message: 'Payment document already exists' });
+            }
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
